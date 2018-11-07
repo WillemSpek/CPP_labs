@@ -1,0 +1,26 @@
+Concurrency and Parallel Programming
+Wave Equation Simulation
+OpenMP Framework
+
+Author: Koen Koning
+
+This framework provides some basic code which handles most of the I/O and
+timing. Therefore, you only have to implement the simulation itself using
+pthreads.
+
+The function `simulate' in `simulate.c' is called when everything is set up and
+the simulation should run. You most likely won't have to look at any of the
+other files you are given. This is where you should iterate over all timesteps,
+from 0 to t_max. i_max indicates the amount of discrete points of the wave, and
+thus the length of the arrays you are given. You are given three pointers to
+already allocated buffers. The buffers `old' and `current' are already populated
+with initial data. You should return a pointer to the array containing the last
+iteration, so this data can be writen to a file.
+
+You can run this program locally using `make runlocal'. When you want to measure
+the performance on the DAS4, you should use `make run'. This will use prun to
+schedule your job on the DAS4. The command line arguments used for both these
+commands can be found near the top of the Makefile.
+
+You can use `make plot' to generate a graph of your final result, and view it.
+When doing this through SSH, make sure you have X forwarding enabled.
