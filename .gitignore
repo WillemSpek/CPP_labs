@@ -1,0 +1,7 @@
+# C executables and output files
+*.o
+
+# Assignment related files
+*.pdf
+*.tgz
+*.txt
