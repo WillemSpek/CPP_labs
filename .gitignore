@@ -2,9 +2,12 @@
 *.o
 assign1_1
 assign1_2
+data
+TestMap
 
 
 # Assignment related files
 *.pdf
 *.tgz
 *.txt
+*.png
