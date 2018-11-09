@@ -34,7 +34,7 @@ void *update_wave (void *p) {
 
     for (int i = start; i < end; i ++) {
         next_array[i] = 2 * current_array[i] - old_array[i] + 0.15 *
-        (current_array[i - 1] - 2 * current_array[i] - current_array[i +  1]);
+        (current_array[i - 1] - (2 * current_array[i] - current_array[i +  1]));
     }
 
     return NULL;
@@ -69,10 +69,11 @@ double *simulate(const int i_max, const int t_max, const int num_threads,
     int iterations_per_thread = (i_max - 2) / num_threads;
     int rem_iterations = (i_max - 2) % num_threads;
 
+    void *results;
+
     for (int t = 0; t < t_max; t++) {
         // update array per timepoint
-        current_array = next_array;
-        old_array = current_array;
+
         // initiliaze first and last wavepoint
         next_array[0] = current_array[0];
         next_array[i_max] = current_array[i_max];
@@ -99,6 +100,14 @@ double *simulate(const int i_max, const int t_max, const int num_threads,
                             &update_wave,
                             (void *)&args);
         }
+
+        for (int i = 0; i < num_threads; i++) {
+            pthread_join(thread_ids, &results);
+        }
+
+        old_array = current_array;
+        current_array = next_array;
+        next_array = old_array;
     }
 
 
