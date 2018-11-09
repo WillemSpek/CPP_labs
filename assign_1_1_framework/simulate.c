@@ -15,12 +15,13 @@
 typedef struct{
     int start;
     int end;
-    double *old_array;
-    double *current_array;
-    double *next_array;
 } update_args;
 
-#define WAVE_PARAM 0.15;
+#define WAVE_PARAM 0.15
+
+double *global_old_array;
+double *global_current_array;
+double *global_next_array;
 
 
 /* Add any functions you may need (like a worker) here. */
@@ -28,16 +29,11 @@ void *update_wave (void *p) {
     update_args *args = (update_args *) p;
     int start = args->start;
     int end = args->end;
-    double *old_array = args->old_array;
-    double *current_array = args->current_array;
-    double *next_array = args->next_array;
 
-    for (int i = start; i < end; i ++) {
-        next_array[i] = 2 * current_array[i] - old_array[i] + 0.15 *
-        (current_array[i - 1] - (2 * current_array[i] - current_array[i +  1]));
+    for (int i = start; i < end; i++) {
+        global_next_array[i] = 2 * global_current_array[i] - global_old_array[i] + 0.15 *
+        (global_current_array[i - 1] - (2 * global_current_array[i] - global_current_array[i +  1]));
     }
-
-    return NULL;
 }
 
 
@@ -56,58 +52,59 @@ void *update_wave (void *p) {
 double *simulate(const int i_max, const int t_max, const int num_threads,
         double *old_array, double *current_array, double *next_array)
 {
-
-
-
     /*
      * After each timestep, you should swap the buffers around. Watch out none
      * of the threads actually use the buffers at that time.
      */
 
     pthread_t thread_ids[num_threads];
+    global_old_array = old_array;
+    global_current_array = current_array;
+    global_next_array = next_array;
 
-    int iterations_per_thread = (i_max - 2) / num_threads;
+    int iterations_per_thread = (i_max- 2) / num_threads;
     int rem_iterations = (i_max - 2) % num_threads;
 
     void *results;
 
     for (int t = 0; t < t_max; t++) {
-        // update array per timepoint
-
-        // initiliaze first and last wavepoint
-        next_array[0] = current_array[0];
-        next_array[i_max] = current_array[i_max];
+        update_args *args[num_threads];
+        int total_iterations = 0;
 
 
         for (int i = 0; i < num_threads; i++) {
-            update_args *args = (update_args*) malloc(sizeof(update_args));
+            args[i] = (update_args*) malloc(sizeof(update_args));
             if (!args) {
                 printf("Rip world\n");
             }
 
-            int iterations = iterations_per_thread + rem_iterations / (i + 1);
-            int start = iterations * i;
-            int end = start + iterations;
+            int iterations = iterations_per_thread;
+            if (i < rem_iterations) {
+                iterations++;
+            }
 
-            args->start = start;
-            args->end = end;
-            args->old_array = old_array;
-            args->current_array = current_array;
-            args->next_array = next_array;
+
+            int start = total_iterations + 1;
+            int end = start + iterations;
+            total_iterations += iterations;
+
+            args[i]->start = start;
+            args[i]->end = end;
 
             pthread_create (&thread_ids[i],
                             NULL,
                             &update_wave,
-                            (void *)&args);
+                            (void *)args[i]);
         }
 
         for (int i = 0; i < num_threads; i++) {
-            pthread_join(thread_ids, &results);
+            pthread_join(thread_ids[i], &results);
+            free(args[i]);
         }
 
-        old_array = current_array;
-        current_array = next_array;
-        next_array = old_array;
+        global_old_array = global_current_array;
+        global_current_array = global_next_array;
+        global_next_array = global_old_array;
     }
 
 
