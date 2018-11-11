@@ -22,6 +22,9 @@ typedef struct{
 double *global_old_array;
 double *global_current_array;
 double *global_next_array;
+int global_t_max;
+pthread_barrier_t global_barrier;
+pthread_mutex_t global_lock;
 
 
 /* Add any functions you may need (like a worker) here. */
@@ -29,11 +32,29 @@ void *update_wave (void *p) {
     update_args *args = (update_args *) p;
     int start = args->start;
     int end = args->end;
+    int switched;
 
-    for (int i = start; i < end; i++) {
-        global_next_array[i] = 2 * global_current_array[i] - global_old_array[i] + 0.15 *
-        (global_current_array[i - 1] - (2 * global_current_array[i] - global_current_array[i +  1]));
+
+    for (int t = 0; t < global_t_max; t++) {
+        switched = 0;
+        for (int i = start; i < end; i++) {
+            global_next_array[i] = 2 * global_current_array[i] - global_old_array[i] + 0.15 *
+            (global_current_array[i - 1] - (2 * global_current_array[i] - global_current_array[i +  1]));
+        }
+
+        while(!switched) {
+            pthread_mutex_trylock(&global_lock);
+            switched = 1;
+            global_old_array = global_current_array;
+            global_current_array = global_next_array;
+            global_next_array = global_old_array;
+            pthread_mutex_unlock(&global_lock);
+        }
+
+        pthread_barrier_wait(&global_barrier);
     }
+
+    return NULL;
 }
 
 
@@ -61,50 +82,46 @@ double *simulate(const int i_max, const int t_max, const int num_threads,
     global_old_array = old_array;
     global_current_array = current_array;
     global_next_array = next_array;
+    global_t_max = t_max;
+
+    pthread_barrier_init(&global_barrier, NULL, num_threads);
 
     int iterations_per_thread = (i_max- 2) / num_threads;
     int rem_iterations = (i_max - 2) % num_threads;
 
+    printf("Not bugged -1\n");
     void *results;
+    update_args *args[num_threads];
+    int total_iterations = 0;
 
-    for (int t = 0; t < t_max; t++) {
-        update_args *args[num_threads];
-        int total_iterations = 0;
+    for (int i = 0; i < num_threads; i++) {
+        printf("Not bugged %i\n", i);
 
-
-        for (int i = 0; i < num_threads; i++) {
-            args[i] = (update_args*) malloc(sizeof(update_args));
-            if (!args) {
-                printf("Rip world\n");
-            }
-
-            int iterations = iterations_per_thread;
-            if (i < rem_iterations) {
-                iterations++;
-            }
-
-
-            int start = total_iterations + 1;
-            int end = start + iterations;
-            total_iterations += iterations;
-
-            args[i]->start = start;
-            args[i]->end = end;
-
-            pthread_create (&thread_ids[i],
-                            NULL,
-                            &update_wave,
-                            (void *)args[i]);
+        int iterations = iterations_per_thread;
+        if (i < rem_iterations) {
+            iterations++;
         }
 
-        for (int i = 0; i < num_threads; i++) {
-            pthread_join(thread_ids[i], &results);
-            free(args[i]);
-        }
 
-        global_old_array = global_current_array;
-        global_current_array = global_next_array;
-        global_next_array = global_old_array;
+        args[i] = (update_args*) malloc(sizeof(update_args));
+        int start = total_iterations + 1;
+        int end = start + iterations;
+        total_iterations += iterations;
+
+        args[i]->start = start;
+        args[i]->end = end;
+
+        pthread_create (&thread_ids[i],
+                        NULL,
+                        &update_wave,
+                        (void *)args[i]);
+
+        printf("Still not bugged %i\n", i);
+    }
+
+    for (int i = 0; i < num_threads; i++) {
+        pthread_join(thread_ids[i], &results);
+        free(args[i]);
     }
 
 
