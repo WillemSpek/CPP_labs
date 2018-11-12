@@ -14,6 +14,7 @@
 #include "file.h"
 #include "timer.h"
 #include "simulate.h"
+#include "simulate_seq.h"
 
 typedef double (*func_t)(double x);
 
@@ -50,9 +51,9 @@ void fill(double *array, int offset, int range, double sample_start,
 
 int main(int argc, char *argv[])
 {
-    double *old, *current, *next, *ret;
+    double *old, *current, *next;
+    double ret[5];
     int t_max, i_max, num_threads;
-    double time;
 
     /* Parse commandline args: i_max t_max num_threads */
     if (argc < 4) {
@@ -132,17 +133,32 @@ int main(int argc, char *argv[])
         fill(current, 2, i_max/4, 0, 2*3.14, sin);
     }
 
+    for(int i = 0; i < 5; i++) {
+        timer_start();
 
-    timer_start();
+        if(i == 0) {
+            num_threads = 1;
+        } else {
+            num_threads = 2 * i;
+        }
 
-    /* Call the actual simulation that should be implemented in simulate.c. */
-    ret = simulate(i_max, t_max, num_threads, old, current, next);
+        /* Call the actual simulation that should be implemented in simulate.c. */
+        simulate(i_max, t_max, num_threads, old, current, next);
 
-    time = timer_end();
-    printf("Took %g seconds\n", time);
-    printf("Normalized: %g seconds\n", time / (1. * i_max * t_max));
+        double time_par = timer_end();
 
-    file_write_double_array("result.txt", ret, i_max);
+        timer_start();
+
+        /* Call the actual simulation that should be implemented in simulate.c. */
+        simulate_seq(i_max, t_max, num_threads, old, current, next);
+
+        double time_seq = timer_end();
+
+
+        double speedup = time_seq / time_par;
+        printf("%f\n", speedup);
+
+    }
 
     free(old);
     free(current);
