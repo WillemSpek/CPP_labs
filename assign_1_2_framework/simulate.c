@@ -29,18 +29,39 @@ double *simulate(const int i_max, const int t_max, const int num_threads,
     float wave_param = 0.15;
 
     for (int t = 0; t < t_max; t++) {
-        // update array per timepoint
-        // initiliaze first and last wavepoint
-        // next_array[0] = current_array[0];
-        // next_array[i_max] = current_array[i_max];
-//
-        // #pragma omp paranllel for num_threads(num_threads)
+
+        // parallelize the loop statically
+        #pragma omp paranllel for num_threads(num_threads)
         for (int i = 1; i < i_max - 1; i ++) {
+            // update single amplitude point
             next_array[i] = 2 * current_array[i] - old_array[i] + wave_param * \
             (current_array[i - 1] - (2 * \
             current_array[i] - current_array[i + 1]));
         }
 
+        // update wave
+        old_array = current_array;
+        current_array = next_array;
+        next_array = old_array;
+    }
+
+    return current_array;
+}
+
+double *simulate_seq(const int i_max, const int t_max, const int num_threads,
+        double *old_array, double *current_array, double *next_array)
+{
+    float wave_param = 0.15;
+
+    for (int t = 0; t < t_max; t++) {
+        for (int i = 1; i < i_max - 1; i ++) {
+            // update single amplitude point
+            next_array[i] = 2 * current_array[i] - old_array[i] + wave_param * \
+            (current_array[i - 1] - (2 * \
+            current_array[i] - current_array[i + 1]));
+        }
+
+        // update wave
         old_array = current_array;
         current_array = next_array;
         next_array = old_array;
