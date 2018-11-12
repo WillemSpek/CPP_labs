@@ -132,32 +132,33 @@ int main(int argc, char *argv[])
         fill(old, 1, i_max/4, 0, 2*3.14, sin);
         fill(current, 2, i_max/4, 0, 2*3.14, sin);
     }
-
     for(int i = 0; i < 5; i++) {
-        timer_start();
+        double sum_speedup = 0;
+        for(int j = 0; j < 10; j++) {
+            timer_start();
 
-        if(i == 0) {
-            num_threads = 1;
-        } else {
-            num_threads = 2 * i;
+            if(i == 0) {
+                num_threads = 1;
+            } else {
+                num_threads = 2 * i;
+            }
+
+            /* Call the actual simulation that should be implemented in simulate.c. */
+            simulate(i_max, t_max, num_threads, old, current, next);
+
+            double time_par = timer_end();
+
+            timer_start();
+
+            /* Call the actual simulation that should be implemented in simulate.c. */
+            simulate_seq(i_max, t_max, num_threads, old, current, next);
+
+            double time_seq = timer_end();
+
+            sum_speedup += time_seq / time_par;
+
         }
-
-        /* Call the actual simulation that should be implemented in simulate.c. */
-        simulate(i_max, t_max, num_threads, old, current, next);
-
-        double time_par = timer_end();
-
-        timer_start();
-
-        /* Call the actual simulation that should be implemented in simulate.c. */
-        simulate_seq(i_max, t_max, num_threads, old, current, next);
-
-        double time_seq = timer_end();
-
-
-        double speedup = time_seq / time_par;
-        printf("%f\n", speedup);
-
+        printf("%f\n", sum_speedup / 10);
     }
 
     free(old);
