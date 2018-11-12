@@ -11,14 +11,16 @@
 #include "simulate.h"
 
 
-/* Add any global variables you may need. */
+/* Struct of arguments for the threads. */
 typedef struct{
     int start;
     int end;
 } update_args;
 
+// c
 #define WAVE_PARAM 0.15
 
+/* global variables */
 double *global_old_array;
 double *global_current_array;
 double *global_next_array;
@@ -27,7 +29,7 @@ pthread_barrier_t global_barrier;
 pthread_mutex_t global_lock;
 
 
-/* Add any functions you may need (like a worker) here. */
+/* Wave calculation thread.  */
 void *update_wave (void *p) {
     update_args *args = (update_args *) p;
     int start = args->start;
@@ -42,6 +44,7 @@ void *update_wave (void *p) {
             (global_current_array[i - 1] - (2 * global_current_array[i] - global_current_array[i +  1]));
         }
 
+        // Only switch the arrays once, since they are shared memory.
         while(!switched) {
             pthread_mutex_trylock(&global_lock);
             switched = 1;
@@ -89,21 +92,18 @@ double *simulate(const int i_max, const int t_max, const int num_threads,
     int iterations_per_thread = (i_max- 2) / num_threads;
     int rem_iterations = (i_max - 2) % num_threads;
 
-    printf("Not bugged -1\n");
     void *results;
     update_args *args[num_threads];
     int total_iterations = 0;
 
     for (int i = 0; i < num_threads; i++) {
-        printf("Not bugged %i\n", i);
-
         int iterations = iterations_per_thread;
         if (i < rem_iterations) {
             iterations++;
         }
 
-
         args[i] = (update_args*) malloc(sizeof(update_args));
+        // Calculate the start en end of the chunk that can be parallelized.
         int start = total_iterations + 1;
         int end = start + iterations;
         total_iterations += iterations;
@@ -115,10 +115,9 @@ double *simulate(const int i_max, const int t_max, const int num_threads,
                         NULL,
                         &update_wave,
                         (void *)args[i]);
-
-        printf("Still not bugged %i\n", i);
     }
 
+    // Close the threads after use.
     for (int i = 0; i < num_threads; i++) {
         pthread_join(thread_ids[i], &results);
         free(args[i]);
