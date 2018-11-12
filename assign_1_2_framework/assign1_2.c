@@ -137,14 +137,10 @@ int main(int argc, char *argv[])
         for(int j = 0; j < 10; j++) {
             timer_start();
 
-            if(i == 0) {
-                num_threads = 1;
-            } else {
-                num_threads = 2 * i;
-            }
+            int block_size = pow(10, i);
 
             /* Call the actual simulation that should be implemented in simulate.c. */
-            simulate(i_max, t_max, num_threads, old, current, next);
+            simulate(i_max, t_max, num_threads, block_size, old, current, next);
 
             double time_par = timer_end();
 
