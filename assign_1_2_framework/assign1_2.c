@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
         fill(old, 1, i_max/4, 0, 2*3.14, sin);
         fill(current, 2, i_max/4, 0, 2*3.14, sin);
     }
-    for(int i = 1; i < 5; i++) {
+    for(int i = 1; i < 6; i++) {
         double sum_speedup = 0;
         for(int j = 0; j < 10; j++) {
             timer_start();
