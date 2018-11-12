@@ -7,7 +7,7 @@
 #define MAX_ITEMS 5000
 
 
-
+/* Queue functions */
 queue_t* queue_init (void) {
     queue_t *q = (queue_t *) malloc(sizeof(queue_t));
     if(q == NULL) {
@@ -84,6 +84,7 @@ int isFull (queue_t *q) {
     return q->num_items >= MAX_ITEMS;
 }
 
+/* thread function*/
 void *thread (void *args) {
     args_t *old_args = (args_t *) args;
     queue_t *inbound = old_args->queue;
@@ -93,6 +94,7 @@ void *thread (void *args) {
 
     pthread_t id;
     if (count == 0) {
+        // Generator
         queue_t *outbound = queue_init();
         args_t *new_args = (args_t *) malloc(sizeof(args_t));
         if (new_args == NULL) {
@@ -125,7 +127,6 @@ void *thread (void *args) {
         while (1) {
             pthread_mutex_lock(&outbound_cond_lock);
             if (isFull(outbound)) {
-                printf("FULL\n");
                 pthread_cond_wait(&outbound_cond, &outbound_cond_lock);
             }
 
@@ -137,6 +138,7 @@ void *thread (void *args) {
 
         }
     } else {
+        // Filter
         pthread_mutex_lock(&inbound_cond_lock);
         if (isEmpty(inbound)){
             pthread_cond_wait(&inbound_cond, &inbound_cond_lock);
@@ -182,9 +184,8 @@ void *thread (void *args) {
             pthread_cond_signal(&inbound_cond);
             pthread_mutex_unlock(&inbound_cond_lock);
 
-
+            // Dont add multiples of the prime
             if (! (node->data % count) == 0){
-
                 pthread_mutex_lock(&outbound_cond_lock);
                 if (isFull(outbound)) {
                     pthread_cond_wait(&outbound_cond, &outbound_cond_lock);
