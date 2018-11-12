@@ -14,6 +14,7 @@
 #include "file.h"
 #include "timer.h"
 #include "simulate.h"
+#include "simulate_seq.h"
 
 typedef double (*func_t)(double x);
 
@@ -131,17 +132,33 @@ int main(int argc, char *argv[])
         fill(old, 1, i_max/4, 0, 2*3.14, sin);
         fill(current, 2, i_max/4, 0, 2*3.14, sin);
     }
+    // take 6 samples
+    for(int i = 0; i < 5; i++) {
+        double sum_speedup = 0;
+        //
+        for(int j = 0; j < 4; j++) {
+            timer_start();
+            if(i == 0) {
+                num_threads = 1;
+            } else {
+                num_threads = 2 * i;
+            }
 
-    timer_start();
+            /* Call the actual simulation that should be implemented in simulate.c. */
+            simulate(i_max, t_max, num_threads, old, current, next);
+            double time_par = timer_end();
 
-    /* Call the actual simulation that should be implemented in simulate.c. */
-    ret = simulate(i_max, t_max, num_threads, old, current, next);
+            timer_start();
+            /* Call the sequantial simulation that should be implemented in simulate.c. */
+            simulate_seq(i_max, t_max, num_threads, old, current, next);
+            double time_seq = timer_end();
 
-    time = timer_end();
-    printf("Took %g seconds\n", time);
-    printf("Normalized: %g seconds\n", time / (i_max * t_max));
+            sum_speedup += (time_seq / time_par);
 
-    file_write_double_array("result.txt", ret, i_max);
+        }
+        printf("%f\n", sum_speedup / 4);
+    }
+
 
     free(old);
     free(current);
