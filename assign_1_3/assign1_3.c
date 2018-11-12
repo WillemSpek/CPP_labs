@@ -77,6 +77,10 @@ void *thread (void *args) {
     args_t *old_args = (args_t *) args;
     queue_t *inbound = old_args->queue;
     int count = old_args->count;
+    pthread_cond_t old_cond = old_args->cond;
+    pthread_mutex_t old_cond_lock = old_args->cond_lock;
+    pthread_mutex_t old_lock = old_args->lock;
+
     pthread_t id;
     if (count == 0) {
         queue_t *outbound = queue_init();
@@ -85,6 +89,14 @@ void *thread (void *args) {
             perror("Malloc failed.");
             exit(1);
         }
+
+        pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+        pthread_mutex_t cond_lock = PTHREAD_MUTEX_INITIALIZER;
+        pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
+        new_args->lock = lock;
+        new_args->cond = cond;
+        new_args->cond_lock = cond_lock;
         new_args->queue = outbound;
         new_args->count = 2;
 
@@ -100,6 +112,9 @@ void *thread (void *args) {
         while (1) {
             put(outbound, i);
             i++;
+            // pthread_mutex_lock(&cond_lock);
+            pthread_cond_signal(&cond);
+            // pthread_mutex_unlock(&cond_lock);
         }
 
         // return outbound;
@@ -118,6 +133,15 @@ void *thread (void *args) {
             perror("Malloc failed.");
             exit(1);
         }
+
+        pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+        pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+        pthread_mutex_t cond_lock = PTHREAD_MUTEX_INITIALIZER;
+
+
+        new_args->lock = lock;
+        new_args->cond_lock = cond_lock;
+        new_args->cond = cond;
         new_args->count = count;
         new_args->queue = outbound;
 
@@ -130,6 +154,10 @@ void *thread (void *args) {
         }
 
         while (1) {
+            // pthread_mutex_lock(&old_cond_lock);
+            pthread_cond_wait(&old_cond, &old_lock);
+            // pthread_mutex_unlock(&old_cond_lock);
+
             if (!isEmpty(inbound)) {
                 struct node_t *node = get_node(inbound);
                 if (! (node->data % count) == 0){
@@ -139,6 +167,9 @@ void *thread (void *args) {
                     }
 
                     put_node (outbound, node);
+                    // pthread_mutex_lock(&cond_lock);
+                    pthread_cond_signal(&cond);
+                    // pthread_mutex_unlock(&cond_lock);
                 }
             }
         }
@@ -149,10 +180,12 @@ int main(int argc, char *argv[]) {
     args_t *new_args;
     pthread_t id;
     new_args = malloc(sizeof(args_t));
+
     if (new_args == NULL) {
         perror("Malloc failed.");
         exit(1);
     }
+
     new_args->queue = NULL;
     new_args->count = 0;
 

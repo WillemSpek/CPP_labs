@@ -11,4 +11,7 @@ typedef struct {
 typedef struct {
     queue_t *queue;
     int count;
+    pthread_mutex_t lock;
+    pthread_cond_t cond;
+    pthread_mutex_t cond_lock;
 } args_t;
