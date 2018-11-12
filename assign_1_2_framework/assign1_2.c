@@ -52,7 +52,6 @@ void fill(double *array, int offset, int range, double sample_start,
 int main(int argc, char *argv[])
 {
     double *old, *current, *next;
-    double ret[5];
     int t_max, i_max, num_threads;
 
     /* Parse commandline args: i_max t_max num_threads */
@@ -156,7 +155,7 @@ int main(int argc, char *argv[])
 
 
         double speedup = time_seq / time_par;
-        printf("%f\n", speedup);
+        printf("Speedup: %f\n, Threads: %d", speedup, num_threads);
 
     }
 
