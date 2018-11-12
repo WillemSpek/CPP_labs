@@ -4,6 +4,8 @@
 
 #include "assign1_3.h"
 
+#define MAX_ITEMS 5000
+
 
 
 queue_t* queue_init (void) {
@@ -12,6 +14,8 @@ queue_t* queue_init (void) {
         perror("Malloc failed.");
         exit(1);
     }
+
+    q->num_items = 0;
     q->start = NULL;
     q->end = NULL;
     return q;
@@ -24,6 +28,7 @@ struct node_t* put (queue_t *q, int num) {
         exit(1);
     }
 
+
     n->data = num;
 
     if (q->end) {
@@ -33,6 +38,8 @@ struct node_t* put (queue_t *q, int num) {
     }
 
     q->end = n;
+
+    q->num_items++;
 
     return n;
 }
@@ -44,6 +51,7 @@ struct node_t* put_node (queue_t *q, struct node_t* n) {
         q->start = n;
     }
 
+    q->num_items++;
     q->end = n;
 
     return n;
@@ -55,31 +63,33 @@ int get (queue_t *q) {
     q->start = q->start->next;
     free(n);
 
+    q->num_items--;
+
     return num;
 }
 
 struct node_t* get_node (queue_t *q) {
     struct node_t *n = q->start;
     q->start = q->start->next;
+    q->num_items--;
 
     return n;
 }
 
 int isEmpty (queue_t *q) {
-    if (q->start == q->end) {
-        return 1;
-    } else {
-        return 0;
-    }
+    return q->num_items == 0;
+}
+
+int isFull (queue_t *q) {
+    return q->num_items >= MAX_ITEMS;
 }
 
 void *thread (void *args) {
     args_t *old_args = (args_t *) args;
     queue_t *inbound = old_args->queue;
     int count = old_args->count;
-    pthread_cond_t old_cond = old_args->cond;
-    pthread_mutex_t old_cond_lock = old_args->cond_lock;
-    pthread_mutex_t old_lock = old_args->lock;
+    pthread_cond_t inbound_cond = old_args->outbound_cond;
+    pthread_mutex_t inbound_cond_lock = old_args->outbound_cond_lock;
 
     pthread_t id;
     if (count == 0) {
@@ -90,15 +100,18 @@ void *thread (void *args) {
             exit(1);
         }
 
-        pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-        pthread_mutex_t cond_lock = PTHREAD_MUTEX_INITIALIZER;
-        pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+        pthread_cond_t outbound_cond;
+        pthread_cond_init(&outbound_cond, NULL);
+        pthread_mutex_t outbound_cond_lock;
+        pthread_mutex_init(&outbound_cond_lock, NULL);
 
-        new_args->lock = lock;
-        new_args->cond = cond;
-        new_args->cond_lock = cond_lock;
+
+        new_args->outbound_cond = outbound_cond;
+        new_args->outbound_cond_lock = outbound_cond_lock;
+
         new_args->queue = outbound;
         new_args->count = 2;
+
 
         if (pthread_create (&id,
                         NULL,
@@ -110,21 +123,29 @@ void *thread (void *args) {
 
         int i = 2;
         while (1) {
-            put(outbound, i);
-            i++;
-            // pthread_mutex_lock(&cond_lock);
-            pthread_cond_signal(&cond);
-            // pthread_mutex_unlock(&cond_lock);
-        }
-
-        // return outbound;
-    } else {
-        while (1){
-            if (!isEmpty(inbound)){
-                count = get_node(inbound)->data;
-                break;
+            pthread_mutex_lock(&outbound_cond_lock);
+            if (isFull(outbound)) {
+                printf("FULL\n");
+                pthread_cond_wait(&outbound_cond, &outbound_cond_lock);
             }
+
+            put(outbound, i);
+
+            pthread_cond_signal(&outbound_cond);
+            i++;
+            pthread_mutex_unlock(&outbound_cond_lock);
+
         }
+    } else {
+        pthread_mutex_lock(&inbound_cond_lock);
+        if (isEmpty(inbound)){
+            pthread_cond_wait(&inbound_cond, &inbound_cond_lock);
+        }
+        count = get_node(inbound)->data;
+        pthread_cond_signal(&inbound_cond);
+        // printf("count %d\n", count);
+        pthread_mutex_unlock(&inbound_cond_lock);
+
         printf("%d\n", count);
 
         queue_t *outbound = queue_init();
@@ -134,16 +155,17 @@ void *thread (void *args) {
             exit(1);
         }
 
-        pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-        pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-        pthread_mutex_t cond_lock = PTHREAD_MUTEX_INITIALIZER;
+        pthread_mutex_t outbound_cond_lock = PTHREAD_MUTEX_INITIALIZER;
+        pthread_cond_t outbound_cond = PTHREAD_COND_INITIALIZER;
 
+        // printf("6\n");
 
-        new_args->lock = lock;
-        new_args->cond_lock = cond_lock;
-        new_args->cond = cond;
+        new_args->outbound_cond = outbound_cond;
+        new_args->outbound_cond_lock = outbound_cond_lock;
         new_args->count = count;
         new_args->queue = outbound;
+        // printf("7\n");
+
 
         if (pthread_create (&id,
                         NULL,
@@ -154,23 +176,30 @@ void *thread (void *args) {
         }
 
         while (1) {
-            // pthread_mutex_lock(&old_cond_lock);
-            pthread_cond_wait(&old_cond, &old_lock);
-            // pthread_mutex_unlock(&old_cond_lock);
+            pthread_mutex_lock(&inbound_cond_lock);
+            if (isEmpty(inbound)) {
+                pthread_cond_wait(&inbound_cond, &inbound_cond_lock);
+            }
+            // printf("8\n");
 
-            if (!isEmpty(inbound)) {
-                struct node_t *node = get_node(inbound);
-                if (! (node->data % count) == 0){
-                    if(!outbound) {
-                        queue_t *outbound = queue_init();
-                        new_args->queue = outbound;
-                    }
+            struct node_t *node = get_node(inbound);
+            pthread_cond_signal(&inbound_cond);
+            pthread_mutex_unlock(&inbound_cond_lock);
 
-                    put_node (outbound, node);
-                    // pthread_mutex_lock(&cond_lock);
-                    pthread_cond_signal(&cond);
-                    // pthread_mutex_unlock(&cond_lock);
+            // printf("9\n");
+
+            if (! (node->data % count) == 0){
+
+                pthread_mutex_lock(&outbound_cond_lock);
+                if (isFull(outbound)) {
+                    pthread_cond_wait(&outbound_cond, &outbound_cond_lock);
                 }
+                // printf("In\n");
+                put_node (outbound, node);
+                // printf("OUT\n");
+                pthread_cond_signal(&outbound_cond);
+                // printf("10\n");
+                pthread_mutex_unlock(&outbound_cond_lock);
             }
         }
     }
