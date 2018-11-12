@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
     for(int i = 0; i < 5; i++) {
         double sum_speedup = 0;
         //
-        for(int j = 0; j < 4; j++) {
+        for(int j = 0; j < 10; j++) {
             timer_start();
             if(i == 0) {
                 num_threads = 1;
@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
             sum_speedup += (time_seq / time_par);
 
         }
-        printf("%f\n", sum_speedup / 4);
+        printf("%f\n", sum_speedup / 10);
     }
 
 
